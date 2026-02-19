@@ -1,0 +1,10 @@
+{
+  "appId": "app.capgo.webviewversionchecker.example",
+  "appName": "WebView Version Checker Example",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}

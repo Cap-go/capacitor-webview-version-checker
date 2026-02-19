@@ -1,0 +1,346 @@
+import type { PluginListenerHandle } from '@capacitor/core';
+
+export type WebViewVersionState = 'latest' | 'outdated' | 'unknown';
+
+export type WebViewPlatform = 'android' | 'ios' | 'web';
+
+/**
+ * Capacitor config shape for `plugins.WebviewVersionChecker`.
+ *
+ * ```ts
+ * plugins: {
+ *   WebviewVersionChecker: {
+ *     autoCheckOnLoad: true,
+ *     autoCheckOnResume: true,
+ *     autoPromptOnOutdated: true,
+ *     minimumMajorVersion: 124,
+ *     latestVersionApiUrl: 'https://versionhistory.googleapis.com/v1/chrome/platforms/android/channels/stable/versions?page_size=1',
+ *   }
+ * }
+ * ```
+ */
+export interface WebviewVersionCheckerConfig {
+  /**
+   * Automatically run a version check once when the plugin loads.
+   *
+   * @default true
+   */
+  autoCheckOnLoad?: boolean;
+
+  /**
+   * Automatically run a version check each time the app returns to foreground.
+   *
+   * @default true
+   */
+  autoCheckOnResume?: boolean;
+
+  /**
+   * Automatically show a native update prompt whenever an outdated WebView is detected.
+   *
+   * @default false
+   */
+  autoPromptOnOutdated?: boolean;
+
+  /**
+   * Explicit latest version to compare with.
+   * If provided, this value is used before any API lookup.
+   */
+  latestVersion?: string;
+
+  /**
+   * Fallback minimum allowed major version.
+   * Used when `latestVersion` cannot be resolved.
+   */
+  minimumMajorVersion?: number;
+
+  /**
+   * Optional endpoint returning a JSON payload with the latest version.
+   *
+   * Supported response shapes:
+   * - `{ "version": "137.0.7151.44" }`
+   * - `{ "latestVersion": "137.0.7151.44" }`
+   * - Google version history format: `{ "versions": [{ "version": "137.0.7151.44" }] }`
+   */
+  latestVersionApiUrl?: string;
+
+  /**
+   * Optional URL opened when users tap update in the native prompt.
+   *
+   * Android default: Play Store listing of the active WebView package.
+   * iOS default: Apple iOS update help page.
+   */
+  updateUrl?: string;
+
+  /**
+   * Native prompt title.
+   */
+  promptTitle?: string;
+
+  /**
+   * Native prompt message.
+   */
+  promptMessage?: string;
+
+  /**
+   * Native prompt update button text.
+   */
+  promptUpdateButtonText?: string;
+
+  /**
+   * Native prompt cancel button text.
+   */
+  promptCancelButtonText?: string;
+}
+
+/**
+ * Options for running a WebView version check.
+ */
+export interface CheckWebViewOptions extends WebviewVersionCheckerConfig {
+  /**
+   * Force showing a native prompt if an outdated WebView is detected.
+   *
+   * @default false
+   */
+  showPromptOnOutdated?: boolean;
+
+  /**
+   * Optional tag included in the status payload so you can identify the check origin.
+   *
+   * @default "manual"
+   */
+  source?: string;
+}
+
+/**
+ * Options for starting monitor mode.
+ */
+export interface StartMonitoringOptions extends CheckWebViewOptions {
+  /**
+   * Run a check immediately when monitoring starts.
+   *
+   * @default true
+   */
+  checkOnStart?: boolean;
+
+  /**
+   * Whether foreground checks should run while monitoring is enabled.
+   *
+   * @default true
+   */
+  checkOnResume?: boolean;
+}
+
+/**
+ * Options for showing the native update prompt.
+ */
+export interface ShowUpdatePromptOptions {
+  /**
+   * Prompt title.
+   */
+  title?: string;
+
+  /**
+   * Prompt message.
+   */
+  message?: string;
+
+  /**
+   * Update CTA label.
+   */
+  updateButtonText?: string;
+
+  /**
+   * Cancel CTA label.
+   */
+  cancelButtonText?: string;
+
+  /**
+   * Optional URL to open if the update action is selected.
+   */
+  updateUrl?: string;
+}
+
+/**
+ * Options for opening the update page directly.
+ */
+export interface OpenUpdatePageOptions {
+  /**
+   * Optional URL override.
+   */
+  updateUrl?: string;
+}
+
+/**
+ * Snapshot of the currently detected WebView status.
+ */
+export interface WebViewVersionStatus {
+  /**
+   * Native platform that generated the status.
+   */
+  platform: WebViewPlatform;
+
+  /**
+   * Resolved version state.
+   */
+  state: WebViewVersionState;
+
+  /**
+   * Convenience boolean equivalent to `state === 'latest'`.
+   */
+  isLatest: boolean;
+
+  /**
+   * ISO-8601 timestamp of the check.
+   */
+  checkedAt: string;
+
+  /**
+   * Human-readable explanation for the reported state.
+   */
+  reason: string;
+
+  /**
+   * Current WebView (or iOS system WebKit) version string.
+   */
+  currentVersion: string;
+
+  /**
+   * Current detected major version (if parseable).
+   */
+  currentMajorVersion?: number;
+
+  /**
+   * Resolved latest version used for comparison.
+   */
+  latestVersion?: string;
+
+  /**
+   * Resolved latest major version (if parseable).
+   */
+  latestMajorVersion?: number;
+
+  /**
+   * Android package name of the active WebView provider.
+   */
+  providerPackage?: string;
+
+  /**
+   * URL that should be opened to update when outdated.
+   */
+  updateUrl?: string;
+
+  /**
+   * Internal source identifier for the check implementation.
+   */
+  source: string;
+}
+
+/**
+ * Result payload for monitor controls.
+ */
+export interface MonitoringStateResult {
+  /**
+   * Whether monitoring is currently active.
+   */
+  monitoring: boolean;
+
+  /**
+   * Whether checks run on app resume while monitoring is active.
+   */
+  checkOnResume: boolean;
+
+  /**
+   * Whether outdated checks auto-trigger the native prompt.
+   */
+  autoPromptOnOutdated: boolean;
+}
+
+/**
+ * Last known check snapshot.
+ */
+export interface LastStatusResult {
+  /**
+   * Null until the first check completes.
+   */
+  status: WebViewVersionStatus | null;
+}
+
+/**
+ * Result payload for `showUpdatePrompt()`.
+ */
+export interface ShowUpdatePromptResult {
+  /**
+   * Whether a native prompt was actually shown.
+   */
+  shown: boolean;
+
+  /**
+   * Whether the update page was opened from the prompt action.
+   */
+  openedUpdatePage: boolean;
+}
+
+/**
+ * Result payload for `openUpdatePage()`.
+ */
+export interface OpenUpdatePageResult {
+  /**
+   * Whether opening the update URL succeeded.
+   */
+  opened: boolean;
+
+  /**
+   * URL that was attempted.
+   */
+  url: string;
+}
+
+/**
+ * Public API for checking WebView freshness and guiding users to updates.
+ */
+export interface WebviewVersionCheckerPlugin {
+  /**
+   * Runs a version check and returns the latest known status.
+   */
+  check(options?: CheckWebViewOptions): Promise<WebViewVersionStatus>;
+
+  /**
+   * Enables background monitoring (typically on app resume).
+   */
+  startMonitoring(options?: StartMonitoringOptions): Promise<MonitoringStateResult>;
+
+  /**
+   * Disables monitoring.
+   */
+  stopMonitoring(): Promise<MonitoringStateResult>;
+
+  /**
+   * Returns the last resolved status, or `null` if no check was run yet.
+   */
+  getLastStatus(): Promise<LastStatusResult>;
+
+  /**
+   * Shows a native prompt asking the user to update the WebView.
+   */
+  showUpdatePrompt(options?: ShowUpdatePromptOptions): Promise<ShowUpdatePromptResult>;
+
+  /**
+   * Opens the configured update page directly.
+   */
+  openUpdatePage(options?: OpenUpdatePageOptions): Promise<OpenUpdatePageResult>;
+
+  /**
+   * Fired for every successful status evaluation.
+   */
+  addListener(eventName: 'statusChanged', listenerFunc: (status: WebViewVersionStatus) => void): Promise<PluginListenerHandle>;
+
+  /**
+   * Fired when the state resolves to `latest`.
+   */
+  addListener(eventName: 'webViewLatest', listenerFunc: (status: WebViewVersionStatus) => void): Promise<PluginListenerHandle>;
+
+  /**
+   * Fired when the state resolves to `outdated`.
+   */
+  addListener(eventName: 'webViewOutdated', listenerFunc: (status: WebViewVersionStatus) => void): Promise<PluginListenerHandle>;
+}
