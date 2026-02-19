@@ -8,32 +8,6 @@
 
 Capacitor plugin to detect whether the app WebView engine is up to date, emit realtime status events, and optionally show a native update prompt that redirects users to the proper update destination.
 
-## Why WebView Version Checker?
-
-Capacitor already provides a built-in WebView minimum check through config:
-
-```ts
-import type { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  android: {
-    minWebViewVersion: 124,
-  },
-  server: {
-    errorPath: 'unsupported-webview.html',
-  },
-};
-
-export default config;
-```
-
-### Why we're doing this instead
-
-- `android.minWebViewVersion` is static config; it does not give runtime plugin events like `webViewOutdated`.
-- With `server.errorPath`, users are redirected to a static error page (hard block UX) instead of seeing a native modal in your normal app flow.
-- Without `server.errorPath`, Capacitor only logs the issue, but does not provide a native update prompt + store deep link UX.
-- This plugin gives soft enforcement: users can still open/use the app, get a native update modal, and you decide whether to require update later.
-
 ## Install
 
 ```bash
@@ -86,6 +60,32 @@ console.log('WebView status', status);
 // later
 listener.remove();
 ```
+
+## Why WebView Version Checker?
+
+Capacitor already provides a built-in WebView minimum check through config:
+
+```ts
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  android: {
+    minWebViewVersion: 124,
+  },
+  server: {
+    errorPath: 'unsupported-webview.html',
+  },
+};
+
+export default config;
+```
+
+### Why we're doing this instead
+
+- `android.minWebViewVersion` is static config; it does not give runtime plugin events like `webViewOutdated`.
+- With `server.errorPath`, users are redirected to a static error page (hard block UX) instead of seeing a native modal in your normal app flow.
+- Without `server.errorPath`, Capacitor only logs the issue, but does not provide a native update prompt + store deep link UX.
+- This plugin gives soft enforcement: users can still open/use the app, get a native update modal, and you decide whether to require update later.
 
 ## Android Provider Handling
 
