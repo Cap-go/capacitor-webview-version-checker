@@ -430,15 +430,24 @@ export interface WebviewVersionCheckerPlugin {
   /**
    * Fired for every successful status evaluation.
    */
-  addListener(eventName: 'statusChanged', listenerFunc: (status: WebViewVersionStatus) => void): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'statusChanged',
+    listenerFunc: (status: WebViewVersionStatus) => void,
+  ): Promise<PluginListenerHandle>;
 
   /**
    * Fired when the state resolves to `latest`.
    */
-  addListener(eventName: 'webViewLatest', listenerFunc: (status: WebViewVersionStatus) => void): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'webViewLatest',
+    listenerFunc: (status: WebViewVersionStatus) => void,
+  ): Promise<PluginListenerHandle>;
 
   /**
    * Fired when the state resolves to `outdated`.
    */
-  addListener(eventName: 'webViewOutdated', listenerFunc: (status: WebViewVersionStatus) => void): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'webViewOutdated',
+    listenerFunc: (status: WebViewVersionStatus) => void,
+  ): Promise<PluginListenerHandle>;
 }

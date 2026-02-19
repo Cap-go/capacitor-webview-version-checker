@@ -33,8 +33,13 @@ export class WebviewVersionCheckerWeb extends WebPlugin implements WebviewVersio
     const normalizedInlineVersionShareByMajor = this.normalizeVersionShareByMajor(options.versionShareByMajor);
     const normalizedGeneratedVersionShareByMajor = this.normalizeVersionShareByMajor(DEFAULT_VERSION_SHARE_BY_MAJOR);
     const normalizedVersionShareByMajor = normalizedInlineVersionShareByMajor ?? normalizedGeneratedVersionShareByMajor;
-    const versionShareSource = normalizedInlineVersionShareByMajor ? 'versionShareByMajor' : DEFAULT_VERSION_SHARE_DATA_SOURCE;
-    const currentVersionSharePercent = this.resolveCurrentVersionSharePercent(currentMajorVersion, normalizedVersionShareByMajor);
+    const versionShareSource = normalizedInlineVersionShareByMajor
+      ? 'versionShareByMajor'
+      : DEFAULT_VERSION_SHARE_DATA_SOURCE;
+    const currentVersionSharePercent = this.resolveCurrentVersionSharePercent(
+      currentMajorVersion,
+      normalizedVersionShareByMajor,
+    );
     let deviceShareError: string | undefined;
 
     let state: WebViewVersionState = 'unknown';
@@ -51,21 +56,29 @@ export class WebviewVersionCheckerWeb extends WebPlugin implements WebviewVersio
         deviceShareError =
           'Web shim does not fetch version-share API data. Provide versionShareByMajor to evaluate minimumDeviceSharePercent.';
       } else if (!normalizedVersionShareByMajor) {
-        deviceShareError =
-          'minimumDeviceSharePercent is set, but no versionShareByMajor dataset was provided.';
+        deviceShareError = 'minimumDeviceSharePercent is set, but no versionShareByMajor dataset was provided.';
       } else {
-        deviceShareError =
-          'No device-share entry was found for the current browser engine major version.';
+        deviceShareError = 'No device-share entry was found for the current browser engine major version.';
       }
     }
 
     if (state === 'unknown' && latestVersion && currentVersion) {
       const cmp = this.compareVersions(currentVersion, latestVersion);
       state = cmp >= 0 ? 'latest' : 'outdated';
-      reason = cmp >= 0 ? 'Current browser engine is at or above the requested latest version.' : 'Current browser engine is below the requested latest version.';
-    } else if (state === 'unknown' && typeof options.minimumMajorVersion === 'number' && typeof currentMajorVersion === 'number') {
+      reason =
+        cmp >= 0
+          ? 'Current browser engine is at or above the requested latest version.'
+          : 'Current browser engine is below the requested latest version.';
+    } else if (
+      state === 'unknown' &&
+      typeof options.minimumMajorVersion === 'number' &&
+      typeof currentMajorVersion === 'number'
+    ) {
       state = currentMajorVersion >= options.minimumMajorVersion ? 'latest' : 'outdated';
-      reason = state === 'latest' ? 'Current browser engine major version meets the minimum requirement.' : 'Current browser engine major version is below the minimum requirement.';
+      reason =
+        state === 'latest'
+          ? 'Current browser engine major version meets the minimum requirement.'
+          : 'Current browser engine major version is below the minimum requirement.';
     } else if (state === 'unknown' && deviceShareError) {
       reason = deviceShareError;
     }
@@ -204,8 +217,14 @@ export class WebviewVersionCheckerWeb extends WebPlugin implements WebviewVersio
   }
 
   private compareVersions(left: string, right: string): number {
-    const leftParts = left.split(/[^0-9]+/).filter(Boolean).map((part) => Number.parseInt(part, 10));
-    const rightParts = right.split(/[^0-9]+/).filter(Boolean).map((part) => Number.parseInt(part, 10));
+    const leftParts = left
+      .split(/[^0-9]+/)
+      .filter(Boolean)
+      .map((part) => Number.parseInt(part, 10));
+    const rightParts = right
+      .split(/[^0-9]+/)
+      .filter(Boolean)
+      .map((part) => Number.parseInt(part, 10));
     const maxLength = Math.max(leftParts.length, rightParts.length);
 
     for (let i = 0; i < maxLength; i += 1) {

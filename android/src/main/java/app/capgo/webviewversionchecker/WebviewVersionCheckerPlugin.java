@@ -205,7 +205,8 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         if (options.minimumDeviceSharePercent != null) {
             status.put("minimumDeviceSharePercent", options.minimumDeviceSharePercent);
             if (currentMajorVersion == null) {
-                deviceShareErrorMessage = "Could not evaluate device-share threshold because the installed WebView major version could not be parsed.";
+                deviceShareErrorMessage =
+                    "Could not evaluate device-share threshold because the installed WebView major version could not be parsed.";
             } else {
                 VersionShareResolution versionShareResolution = resolveVersionShare(options);
                 if (!isBlank(versionShareResolution.source)) {
@@ -230,7 +231,8 @@ public class WebviewVersionCheckerPlugin extends Plugin {
                 if (!isBlank(versionShareResolution.errorMessage)) {
                     deviceShareErrorMessage = versionShareResolution.errorMessage;
                 } else {
-                    deviceShareErrorMessage = "No version-share data was found for installed WebView major version " + currentMajorVersion + ".";
+                    deviceShareErrorMessage =
+                        "No version-share data was found for installed WebView major version " + currentMajorVersion + ".";
                 }
             }
             if (!isBlank(deviceShareErrorMessage)) {
@@ -367,7 +369,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
                         callback.onResult(true, false);
                     }
                 })
-                .setOnCancelListener(dialogInterface -> {
+                .setOnCancelListener((dialogInterface) -> {
                     if (callback != null && !resolved[0]) {
                         resolved[0] = true;
                         callback.onResult(true, false);
@@ -1038,9 +1040,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             out.autoCheckOnResume = config.getBoolean("autoCheckOnResume", true);
             out.autoPromptOnOutdated = config.getBoolean("autoPromptOnOutdated", false);
             out.latestVersion = emptyToNull(config.getString("latestVersion"));
-            Integer minimum = config.getConfigJSON().has("minimumMajorVersion")
-                ? config.getInt("minimumMajorVersion", 0)
-                : null;
+            Integer minimum = config.getConfigJSON().has("minimumMajorVersion") ? config.getInt("minimumMajorVersion", 0) : null;
             out.minimumMajorVersion = minimum;
             if (config.getConfigJSON().has("minimumDeviceSharePercent")) {
                 out.minimumDeviceSharePercent = normalizePercent(readOptionalDouble(config.getConfigJSON(), "minimumDeviceSharePercent"));
