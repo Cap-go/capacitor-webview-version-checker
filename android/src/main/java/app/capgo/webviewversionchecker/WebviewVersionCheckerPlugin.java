@@ -25,6 +25,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.TimeZone;
 import org.json.JSONArray;
@@ -65,6 +66,14 @@ public class WebviewVersionCheckerPlugin extends Plugin {
     private String cachedLatestVersionUrl;
 
     private long cachedLatestVersionTimestamp;
+
+    @Nullable
+    private JSONObject cachedVersionShareByMajor;
+
+    @Nullable
+    private String cachedVersionShareApiUrl;
+
+    private long cachedVersionShareTimestamp;
 
     @Override
     public void load() {
@@ -167,7 +176,6 @@ public class WebviewVersionCheckerPlugin extends Plugin {
 
     private JSObject evaluateStatus(String source, RuntimeOptions options) {
         CurrentWebViewInfo current = resolveCurrentWebViewInfo();
-        LatestVersionResolution latestResolution = resolveLatestVersion(options);
 
         JSObject status = new JSObject();
         status.put("platform", "android");
@@ -181,15 +189,6 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             status.put("currentMajorVersion", currentMajorVersion);
         }
 
-        String latestVersion = latestResolution.version;
-        if (!isBlank(latestVersion)) {
-            status.put("latestVersion", latestVersion);
-            Integer latestMajorVersion = versionChecker.parseMajorVersion(latestVersion);
-            if (latestMajorVersion != null) {
-                status.put("latestMajorVersion", latestMajorVersion);
-            }
-        }
-
         String updateUrl = resolveUpdateUrl(options.updateUrl, status);
         if (!isBlank(updateUrl)) {
             status.put("updateUrl", updateUrl);
@@ -200,6 +199,53 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             status.put("isLatest", false);
             status.put("reason", "Could not detect the active Android WebView package version.");
             return status;
+        }
+
+        String deviceShareErrorMessage = null;
+        if (options.minimumDeviceSharePercent != null) {
+            status.put("minimumDeviceSharePercent", options.minimumDeviceSharePercent);
+            if (currentMajorVersion == null) {
+                deviceShareErrorMessage = "Could not evaluate device-share threshold because the installed WebView major version could not be parsed.";
+            } else {
+                VersionShareResolution versionShareResolution = resolveVersionShare(options);
+                if (!isBlank(versionShareResolution.source)) {
+                    status.put("versionShareSource", versionShareResolution.source);
+                }
+
+                Double currentVersionSharePercent = readShareForMajor(versionShareResolution.shareByMajor, currentMajorVersion);
+                if (currentVersionSharePercent != null) {
+                    status.put("currentVersionSharePercent", currentVersionSharePercent);
+                    boolean isLatest = currentVersionSharePercent >= options.minimumDeviceSharePercent;
+                    status.put("state", isLatest ? "latest" : "outdated");
+                    status.put("isLatest", isLatest);
+                    status.put(
+                        "reason",
+                        isLatest
+                            ? "Installed WebView major version satisfies the configured minimum device-share threshold."
+                            : "Installed WebView major version is below the configured minimum device-share threshold."
+                    );
+                    return status;
+                }
+
+                if (!isBlank(versionShareResolution.errorMessage)) {
+                    deviceShareErrorMessage = versionShareResolution.errorMessage;
+                } else {
+                    deviceShareErrorMessage = "No version-share data was found for installed WebView major version " + currentMajorVersion + ".";
+                }
+            }
+            if (!isBlank(deviceShareErrorMessage)) {
+                status.put("deviceShareError", deviceShareErrorMessage);
+            }
+        }
+
+        LatestVersionResolution latestResolution = resolveLatestVersion(options);
+        String latestVersion = latestResolution.version;
+        if (!isBlank(latestVersion)) {
+            status.put("latestVersion", latestVersion);
+            Integer latestMajorVersion = versionChecker.parseMajorVersion(latestVersion);
+            if (latestMajorVersion != null) {
+                status.put("latestMajorVersion", latestMajorVersion);
+            }
         }
 
         if (!isBlank(latestVersion)) {
@@ -234,8 +280,13 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         status.put("isLatest", false);
         if (!isBlank(latestResolution.errorMessage)) {
             status.put("reason", latestResolution.errorMessage);
+        } else if (!isBlank(deviceShareErrorMessage)) {
+            status.put("reason", deviceShareErrorMessage);
         } else {
-            status.put("reason", "Unable to resolve latest WebView version. Configure latestVersion or minimumMajorVersion.");
+            status.put(
+                "reason",
+                "Unable to resolve compatibility status. Configure latestVersion, minimumMajorVersion, or minimumDeviceSharePercent."
+            );
         }
 
         return status;
@@ -392,6 +443,82 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         }
     }
 
+    private VersionShareResolution resolveVersionShare(RuntimeOptions options) {
+        if (options.versionShareByMajor != null && options.versionShareByMajor.length() > 0) {
+            return new VersionShareResolution(copyJsonObject(options.versionShareByMajor), "versionShareByMajor", null);
+        }
+
+        if (!isBlank(options.versionShareApiUrl)) {
+            String apiUrl = options.versionShareApiUrl;
+
+            if (
+                cachedVersionShareByMajor != null &&
+                !isBlank(cachedVersionShareApiUrl) &&
+                apiUrl.equals(cachedVersionShareApiUrl) &&
+                (System.currentTimeMillis() - cachedVersionShareTimestamp) < LATEST_VERSION_CACHE_TTL_MS
+            ) {
+                return new VersionShareResolution(copyJsonObject(cachedVersionShareByMajor), "versionShareApiUrl", null);
+            }
+
+            try {
+                String payload = readUrl(apiUrl);
+                JSONObject shareByMajor = extractVersionShareByMajor(payload);
+                if (shareByMajor == null || shareByMajor.length() == 0) {
+                    return new VersionShareResolution(null, "versionShareApiUrl", "Version-share API returned no compatible dataset.");
+                }
+
+                cachedVersionShareByMajor = copyJsonObject(shareByMajor);
+                cachedVersionShareApiUrl = apiUrl;
+                cachedVersionShareTimestamp = System.currentTimeMillis();
+
+                return new VersionShareResolution(shareByMajor, "versionShareApiUrl", null);
+            } catch (Exception error) {
+                return new VersionShareResolution(
+                    null,
+                    "versionShareApiUrl",
+                    "Could not resolve version-share dataset: " + error.getMessage()
+                );
+            }
+        }
+
+        JSONObject defaultDataset = GeneratedVersionShareData.getDefaultVersionShareByMajor();
+        if (defaultDataset != null && defaultDataset.length() > 0) {
+            return new VersionShareResolution(defaultDataset, GeneratedVersionShareData.getDataSource(), null);
+        }
+
+        return new VersionShareResolution(
+            null,
+            GeneratedVersionShareData.getDataSource(),
+            "Built-in version-share dataset is unavailable."
+        );
+    }
+
+    @Nullable
+    private Double readShareForMajor(@Nullable JSONObject shareByMajor, int majorVersion) {
+        if (shareByMajor == null) {
+            return null;
+        }
+
+        String directKey = String.valueOf(majorVersion);
+        if (shareByMajor.has(directKey) && !shareByMajor.isNull(directKey)) {
+            return parsePercentFromAny(shareByMajor.opt(directKey));
+        }
+
+        Iterator<String> keys = shareByMajor.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Integer mappedMajor = parseMajorFromShareKey(key);
+            if (mappedMajor != null && mappedMajor == majorVersion) {
+                Double share = parsePercentFromAny(shareByMajor.opt(key));
+                if (share != null) {
+                    return share;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private String readUrl(String urlValue) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(urlValue).openConnection();
         connection.setRequestMethod("GET");
@@ -414,6 +541,223 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             return out.toString();
         } finally {
             connection.disconnect();
+        }
+    }
+
+    @Nullable
+    private JSONObject extractVersionShareByMajor(String payload) throws Exception {
+        JSONObject json = new JSONObject(payload);
+        return extractVersionShareByMajor(json);
+    }
+
+    @Nullable
+    private JSONObject extractVersionShareByMajor(JSONObject json) {
+        JSONObject out = new JSONObject();
+
+        JSONObject explicitMap = json.optJSONObject("versionShareByMajor");
+        if (explicitMap != null) {
+            mergeVersionShareMap(out, explicitMap);
+        }
+
+        if (out.length() == 0) {
+            JSONObject secondaryMap = json.optJSONObject("shareByMajor");
+            if (secondaryMap != null) {
+                mergeVersionShareMap(out, secondaryMap);
+            }
+        }
+
+        if (out.length() == 0) {
+            JSONArray versionsArray = json.optJSONArray("versions");
+            if (versionsArray != null) {
+                mergeVersionShareArray(out, versionsArray);
+            }
+        }
+
+        if (out.length() == 0) {
+            JSONArray dataArray = json.optJSONArray("data");
+            if (dataArray != null) {
+                mergeVersionShareArray(out, dataArray);
+            }
+        }
+
+        if (out.length() == 0) {
+            JSONObject caniuseShareByMajor = extractCaniuseVersionShareByMajor(json);
+            if (caniuseShareByMajor != null) {
+                mergeVersionShareMap(out, caniuseShareByMajor);
+            }
+        }
+
+        if (out.length() == 0) {
+            mergeVersionShareMap(out, json);
+        }
+
+        if (out.length() == 0) {
+            return null;
+        }
+        return out;
+    }
+
+    @Nullable
+    private JSONObject extractCaniuseVersionShareByMajor(JSONObject json) {
+        JSONObject agents = json.optJSONObject("agents");
+        if (agents == null) {
+            return null;
+        }
+
+        JSONObject out = new JSONObject();
+
+        // Prefer Android-specific buckets first.
+        mergeVersionShareMap(out, getUsageGlobalMap(agents, "and_chr"));
+        mergeVersionShareMap(out, getUsageGlobalMap(agents, "android"));
+
+        // If Android-specific buckets are sparse, complete with Chrome global data.
+        if (out.length() < 5) {
+            mergeVersionShareMap(out, getUsageGlobalMap(agents, "chrome"));
+        }
+
+        return out.length() > 0 ? out : null;
+    }
+
+    @Nullable
+    private JSONObject getUsageGlobalMap(JSONObject agents, String agentKey) {
+        JSONObject agent = agents.optJSONObject(agentKey);
+        if (agent == null) {
+            return null;
+        }
+        return agent.optJSONObject("usage_global");
+    }
+
+    private void mergeVersionShareMap(JSONObject target, JSONObject source) {
+        if (source == null) {
+            return;
+        }
+        Iterator<String> keys = source.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Integer majorVersion = parseMajorFromShareKey(key);
+            Double sharePercent = parsePercentFromAny(source.opt(key));
+            putShareEntry(target, majorVersion, sharePercent);
+        }
+    }
+
+    private void mergeVersionShareArray(JSONObject target, JSONArray source) {
+        for (int index = 0; index < source.length(); index++) {
+            JSONObject item = source.optJSONObject(index);
+            if (item == null) {
+                continue;
+            }
+
+            Integer majorVersion = parseMajorFromAny(item.opt("major"));
+            if (majorVersion == null) {
+                majorVersion = parseMajorFromAny(item.opt("version"));
+            }
+            if (majorVersion == null) {
+                majorVersion = parseMajorFromAny(item.opt("name"));
+            }
+
+            Double sharePercent = parsePercentFromAny(item.opt("share"));
+            if (sharePercent == null) {
+                sharePercent = parsePercentFromAny(item.opt("sharePercent"));
+            }
+            if (sharePercent == null) {
+                sharePercent = parsePercentFromAny(item.opt("percent"));
+            }
+            if (sharePercent == null) {
+                sharePercent = parsePercentFromAny(item.opt("usage"));
+            }
+            if (sharePercent == null) {
+                sharePercent = parsePercentFromAny(item.opt("value"));
+            }
+
+            putShareEntry(target, majorVersion, sharePercent);
+        }
+    }
+
+    private void putShareEntry(JSONObject target, @Nullable Integer majorVersion, @Nullable Double sharePercent) {
+        if (majorVersion == null || sharePercent == null) {
+            return;
+        }
+        try {
+            target.put(String.valueOf(majorVersion), sharePercent);
+        } catch (Exception ignored) {
+            // Ignore invalid JSON insertions for malformed input.
+        }
+    }
+
+    @Nullable
+    private Integer parseMajorFromShareKey(@Nullable String key) {
+        if (isBlank(key)) {
+            return null;
+        }
+
+        String normalized = key.trim();
+        char first = normalized.charAt(0);
+        if (Character.isDigit(first)) {
+            return versionChecker.parseMajorVersion(normalized);
+        }
+
+        if ((first == 'v' || first == 'V') && normalized.length() > 1 && Character.isDigit(normalized.charAt(1))) {
+            return versionChecker.parseMajorVersion(normalized.substring(1));
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private Integer parseMajorFromAny(@Nullable Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (value instanceof Number) {
+            int major = ((Number) value).intValue();
+            return major >= 0 ? major : null;
+        }
+
+        if (value instanceof String) {
+            return versionChecker.parseMajorVersion((String) value);
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private Double parsePercentFromAny(@Nullable Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        Double percent = null;
+        if (value instanceof Number) {
+            percent = ((Number) value).doubleValue();
+        } else if (value instanceof String) {
+            try {
+                percent = Double.parseDouble(((String) value).trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+
+        return normalizePercentValue(percent);
+    }
+
+    @Nullable
+    private Double normalizePercentValue(@Nullable Double value) {
+        if (value == null || value.isNaN() || value.isInfinite()) {
+            return null;
+        }
+        return Math.max(0.0, Math.min(100.0, value));
+    }
+
+    @Nullable
+    private JSONObject copyJsonObject(@Nullable JSONObject value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new JSONObject(value.toString());
+        } catch (Exception error) {
+            return null;
         }
     }
 
@@ -584,6 +928,24 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         }
     }
 
+    private static final class VersionShareResolution {
+
+        @Nullable
+        private final JSONObject shareByMajor;
+
+        @Nullable
+        private final String source;
+
+        @Nullable
+        private final String errorMessage;
+
+        private VersionShareResolution(@Nullable JSONObject shareByMajor, @Nullable String source, @Nullable String errorMessage) {
+            this.shareByMajor = shareByMajor;
+            this.source = source;
+            this.errorMessage = errorMessage;
+        }
+    }
+
     private static final class PromptOptions {
 
         @Nullable
@@ -644,6 +1006,15 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         private Integer minimumMajorVersion;
 
         @Nullable
+        private Double minimumDeviceSharePercent = 3.0;
+
+        @Nullable
+        private JSONObject versionShareByMajor;
+
+        @Nullable
+        private String versionShareApiUrl;
+
+        @Nullable
         private String latestVersionApiUrl;
 
         @Nullable
@@ -671,6 +1042,11 @@ public class WebviewVersionCheckerPlugin extends Plugin {
                 ? config.getInt("minimumMajorVersion", 0)
                 : null;
             out.minimumMajorVersion = minimum;
+            if (config.getConfigJSON().has("minimumDeviceSharePercent")) {
+                out.minimumDeviceSharePercent = normalizePercent(readOptionalDouble(config.getConfigJSON(), "minimumDeviceSharePercent"));
+            }
+            out.versionShareByMajor = copyJsonObject(config.getObject("versionShareByMajor"));
+            out.versionShareApiUrl = emptyToNull(config.getString("versionShareApiUrl"));
             out.latestVersionApiUrl = emptyToNull(config.getString("latestVersionApiUrl"));
             out.updateUrl = emptyToNull(config.getString("updateUrl"));
             out.promptTitle = emptyToNull(config.getString("promptTitle"));
@@ -700,6 +1076,15 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             }
             if (call.hasOption("minimumMajorVersion")) {
                 out.minimumMajorVersion = call.getInt("minimumMajorVersion");
+            }
+            if (call.hasOption("minimumDeviceSharePercent")) {
+                out.minimumDeviceSharePercent = normalizePercent(call.getDouble("minimumDeviceSharePercent"));
+            }
+            if (call.hasOption("versionShareByMajor")) {
+                out.versionShareByMajor = copyJsonObject(call.getObject("versionShareByMajor"));
+            }
+            if (call.hasOption("versionShareApiUrl")) {
+                out.versionShareApiUrl = emptyToNull(call.getString("versionShareApiUrl"));
             }
             if (call.hasOption("latestVersionApiUrl")) {
                 out.latestVersionApiUrl = emptyToNull(call.getString("latestVersionApiUrl"));
@@ -731,6 +1116,9 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             out.showPromptOnOutdated = showPromptOnOutdated;
             out.latestVersion = latestVersion;
             out.minimumMajorVersion = minimumMajorVersion;
+            out.minimumDeviceSharePercent = minimumDeviceSharePercent;
+            out.versionShareByMajor = copyJsonObject(versionShareByMajor);
+            out.versionShareApiUrl = versionShareApiUrl;
             out.latestVersionApiUrl = latestVersionApiUrl;
             out.updateUrl = updateUrl;
             out.promptTitle = promptTitle;
@@ -746,6 +1134,48 @@ public class WebviewVersionCheckerPlugin extends Plugin {
                 return null;
             }
             return value;
+        }
+
+        @Nullable
+        private static Double readOptionalDouble(JSONObject source, String key) {
+            if (!source.has(key) || source.isNull(key)) {
+                return null;
+            }
+
+            Object value = source.opt(key);
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue();
+            }
+
+            if (value instanceof String) {
+                try {
+                    return Double.parseDouble(((String) value).trim());
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        @Nullable
+        private static Double normalizePercent(@Nullable Double value) {
+            if (value == null || value.isNaN() || value.isInfinite()) {
+                return null;
+            }
+            return Math.max(0.0, Math.min(100.0, value));
+        }
+
+        @Nullable
+        private static JSONObject copyJsonObject(@Nullable JSONObject value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            try {
+                return new JSONObject(value.toString());
+            } catch (Exception error) {
+                return null;
+            }
         }
     }
 }

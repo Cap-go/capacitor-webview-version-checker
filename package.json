@@ -43,10 +43,13 @@
     "prettier": "prettier-pretty-check \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
     "docgen": "docgen --api WebviewVersionCheckerPlugin --output-readme README.md --output-json dist/docs.json",
-    "build": "bun run clean && bun run docgen && tsc && rollup -c rollup.config.mjs",
+    "generate:version-share": "bun run scripts/generate-version-share-data.mjs",
+    "build": "bun run clean && bun run generate:version-share && bun run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
     "prepublishOnly": "bun run build",
+    "capacitor:sync:before": "bun run generate:version-share",
+    "capacitor:update:before": "bun run generate:version-share",
     "check:wiring": "node scripts/check-capacitor-plugin-wiring.mjs"
   },
   "devDependencies": {

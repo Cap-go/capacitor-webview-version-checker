@@ -17,7 +17,44 @@ bunx cap sync
 
 ## Usage
 
-Simple setup (config only):
+Main use case: Browserslist-style compatibility checks by default.
+
+The plugin uses this strategy out of the box, even if you do not add any plugin options:
+- `minimumDeviceSharePercent` defaults to `3`
+- version-share data comes from a built-in dataset generated at build time from caniuse
+- no runtime version-share URL call is required for the default flow
+
+Default setup (no plugin settings):
+
+```ts
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  plugins: {
+    WebviewVersionChecker: {},
+  },
+};
+
+export default config;
+```
+
+Simple config-only setup with native prompt:
+
+```ts
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  plugins: {
+    WebviewVersionChecker: {
+      autoPromptOnOutdated: true,
+    },
+  },
+};
+
+export default config;
+```
+
+Advanced mode with custom threshold and custom dataset:
 
 ```ts
 import type { CapacitorConfig } from '@capacitor/cli';
@@ -26,14 +63,41 @@ const config: CapacitorConfig = {
   plugins: {
     WebviewVersionChecker: {
       autoCheckOnLoad: true,
-      autoCheckOnResume: true,
       autoPromptOnOutdated: true,
+      minimumDeviceSharePercent: 3,
+      versionShareByMajor: {
+        '137': 58.2,
+        '136': 21.3,
+        '135': 4.6,
+        '134': 2.1,
+      },
     },
   },
 };
 
 export default config;
 ```
+
+What this means:
+- `minimumDeviceSharePercent: 3` means "consider a version compatible only if that major version still represents at least 3% of devices in my dataset".
+- `versionShareByMajor` is your own dataset map where:
+  - key = major version (for example `137`)
+  - value = share percent (`0..100`)
+- If you do not provide `versionShareByMajor`, the plugin uses its built-in generated dataset.
+
+You can provide share data in two ways:
+- Inline with `versionShareByMajor` (as shown above)
+- Remote with `versionShareApiUrl` returning one of these shapes:
+  - `{ "versionShareByMajor": { "137": 54.2, "136": 23.8 } }`
+  - `{ "shareByMajor": { "137": 54.2, "136": 23.8 } }`
+  - `{ "versions": [{ "major": 137, "share": 54.2 }, { "version": "136.0.0.0", "percent": 23.8 }] }`
+
+If you set `versionShareApiUrl`, the plugin fetches that URL at runtime and uses it as override.
+
+Evaluation order:
+1. Browserslist-style threshold mode (`minimumDeviceSharePercent` + share dataset) is used first. By default this is `3%` with the built-in generated dataset.
+2. Else the plugin compares against `latestVersion` / `latestVersionApiUrl`.
+3. Else it falls back to `minimumMajorVersion`.
 
 Advanced usage with JavaScript (manual check, listeners, custom prompt):
 
@@ -86,6 +150,7 @@ export default config;
 - With `server.errorPath`, users are redirected to a static error page (hard block UX) instead of seeing a native modal in your normal app flow.
 - Without `server.errorPath`, Capacitor only logs the issue, but does not provide a native update prompt + store deep link UX.
 - This plugin gives soft enforcement: users can still open/use the app, get a native update modal, and you decide whether to require update later.
+- Main use case: this plugin brings Browserslist-style compatibility logic to Android WebView (for example, "support versions still used by at least 3% of devices"), while keeping your app usable.
 
 ## Android Provider Handling
 
@@ -273,20 +338,24 @@ Fired when the state resolves to `outdated`.
 
 Snapshot of the currently detected WebView status.
 
-| Prop                      | Type                                                                | Description                                              |
-| ------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| **`platform`**            | <code><a href="#webviewplatform">WebViewPlatform</a></code>         | Native platform that generated the status.               |
-| **`state`**               | <code><a href="#webviewversionstate">WebViewVersionState</a></code> | Resolved version state.                                  |
-| **`isLatest`**            | <code>boolean</code>                                                | Convenience boolean equivalent to `state === 'latest'`.  |
-| **`checkedAt`**           | <code>string</code>                                                 | ISO-8601 timestamp of the check.                         |
-| **`reason`**              | <code>string</code>                                                 | Human-readable explanation for the reported state.       |
-| **`currentVersion`**      | <code>string</code>                                                 | Current WebView (or iOS system WebKit) version string.   |
-| **`currentMajorVersion`** | <code>number</code>                                                 | Current detected major version (if parseable).           |
-| **`latestVersion`**       | <code>string</code>                                                 | Resolved latest version used for comparison.             |
-| **`latestMajorVersion`**  | <code>number</code>                                                 | Resolved latest major version (if parseable).            |
-| **`providerPackage`**     | <code>string</code>                                                 | Android package name of the active WebView provider.     |
-| **`updateUrl`**           | <code>string</code>                                                 | URL that should be opened to update when outdated.       |
-| **`source`**              | <code>string</code>                                                 | Internal source identifier for the check implementation. |
+| Prop                             | Type                                                                | Description                                                                                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`platform`**                   | <code><a href="#webviewplatform">WebViewPlatform</a></code>         | Native platform that generated the status.                                                                                                                                                               |
+| **`state`**                      | <code><a href="#webviewversionstate">WebViewVersionState</a></code> | Resolved version state.                                                                                                                                                                                  |
+| **`isLatest`**                   | <code>boolean</code>                                                | Convenience boolean equivalent to `state === 'latest'`.                                                                                                                                                  |
+| **`checkedAt`**                  | <code>string</code>                                                 | ISO-8601 timestamp of the check.                                                                                                                                                                         |
+| **`reason`**                     | <code>string</code>                                                 | Human-readable explanation for the reported state.                                                                                                                                                       |
+| **`currentVersion`**             | <code>string</code>                                                 | Current WebView (or iOS system WebKit) version string.                                                                                                                                                   |
+| **`currentMajorVersion`**        | <code>number</code>                                                 | Current detected major version (if parseable).                                                                                                                                                           |
+| **`latestVersion`**              | <code>string</code>                                                 | Resolved latest version used for comparison.                                                                                                                                                             |
+| **`latestMajorVersion`**         | <code>number</code>                                                 | Resolved latest major version (if parseable).                                                                                                                                                            |
+| **`currentVersionSharePercent`** | <code>number</code>                                                 | Device-share percentage for the installed WebView major version. Present only when a version-share dataset is available and includes the current major version.                                          |
+| **`minimumDeviceSharePercent`**  | <code>number</code>                                                 | Configured threshold used by compatibility-threshold mode. Present only when `minimumDeviceSharePercent` was requested for that check.                                                                   |
+| **`versionShareSource`**         | <code>string</code>                                                 | Source used for version-share data. Values: - `versionShareByMajor` (inline dataset) - `versionShareApiUrl` (remote dataset) - `generatedVersionShareByMajor` (built-in dataset generated at build time) |
+| **`deviceShareError`**           | <code>string</code>                                                 | Diagnostic message for compatibility-threshold mode. Present when `minimumDeviceSharePercent` was requested but the threshold check could not be fully evaluated.                                        |
+| **`providerPackage`**            | <code>string</code>                                                 | Android package name of the active WebView provider.                                                                                                                                                     |
+| **`updateUrl`**                  | <code>string</code>                                                 | URL that should be opened to update when outdated.                                                                                                                                                       |
+| **`source`**                     | <code>string</code>                                                 | Internal source identifier for the check implementation.                                                                                                                                                 |
 
 
 #### CheckWebViewOptions

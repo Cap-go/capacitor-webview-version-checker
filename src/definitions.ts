@@ -7,14 +7,33 @@ export type WebViewPlatform = 'android' | 'ios' | 'web';
 /**
  * Capacitor config shape for `plugins.WebviewVersionChecker`.
  *
+ * Main use case (default, no plugin config required):
+ * Browserslist-style compatibility checks with a built-in version-share dataset
+ * generated from caniuse at plugin build time.
+ *
+ * ```ts
+ * plugins: {
+ *   WebviewVersionChecker: {}
+ * }
+ * ```
+ *
+ * Simple setup with automatic prompt:
+ *
  * ```ts
  * plugins: {
  *   WebviewVersionChecker: {
- *     autoCheckOnLoad: true,
- *     autoCheckOnResume: true,
  *     autoPromptOnOutdated: true,
- *     minimumMajorVersion: 124,
- *     latestVersionApiUrl: 'https://versionhistory.googleapis.com/v1/chrome/platforms/android/channels/stable/versions?page_size=1',
+ *   }
+ * }
+ * ```
+ *
+ * Advanced setup with custom dataset and threshold:
+ *
+ * ```ts
+ * plugins: {
+ *   WebviewVersionChecker: {
+ *     minimumDeviceSharePercent: 3,
+ *     versionShareByMajor: { '137': 58.2, '136': 21.3, '135': 4.6 },
  *   }
  * }
  * ```
@@ -52,6 +71,53 @@ export interface WebviewVersionCheckerConfig {
    * Used when `latestVersion` cannot be resolved.
    */
   minimumMajorVersion?: number;
+
+  /**
+   * Browserslist-style compatibility threshold in percentage points.
+   *
+   * Example: `3` means the installed WebView major version must represent at least 3%
+   * of devices in the selected version-share dataset.
+   *
+   * Data source priority:
+   * - `versionShareByMajor` (inline dataset) if provided
+   * - else `versionShareApiUrl` if provided
+   * - else built-in generated dataset (`generatedVersionShareByMajor`)
+   *
+   * If the threshold cannot be evaluated (missing dataset or missing major entry),
+   * the plugin falls back to normal version checks (`latestVersion` / `latestVersionApiUrl`,
+   * then `minimumMajorVersion`).
+   *
+   * @default 3
+   */
+  minimumDeviceSharePercent?: number;
+
+  /**
+   * Optional inline dataset for major-version device share.
+   *
+   * Keys are major versions (string or number-like), values are percentages (`0..100`).
+   *
+   * Example:
+   * `{ "137": 54.2, "136": 23.8, "135": 7.1, "134": 2.4 }`
+   *
+   * Used when `minimumDeviceSharePercent` is set.
+   * If both `versionShareByMajor` and `versionShareApiUrl` are provided,
+   * this inline map is used first.
+   */
+  versionShareByMajor?: Record<string, number>;
+
+  /**
+   * Optional endpoint returning a version-share dataset.
+   *
+   * Used when `minimumDeviceSharePercent` is set and no inline `versionShareByMajor`
+   * is provided. If omitted, the plugin uses its built-in generated dataset.
+   *
+   * Supported response shapes:
+   * - `{ "versionShareByMajor": { "137": 54.2, "136": 23.8 } }`
+   * - `{ "shareByMajor": { "137": 54.2, "136": 23.8 } }`
+   * - `{ "versions": [{ "major": 137, "share": 54.2 }, { "version": "136.0.0.0", "percent": 23.8 }] }`
+   * - Caniuse full dataset shape (`agents.*.usage_global`)
+   */
+  versionShareApiUrl?: string;
 
   /**
    * Optional endpoint returning a JSON payload with the latest version.
@@ -218,6 +284,38 @@ export interface WebViewVersionStatus {
    * Resolved latest major version (if parseable).
    */
   latestMajorVersion?: number;
+
+  /**
+   * Device-share percentage for the installed WebView major version.
+   *
+   * Present only when a version-share dataset is available and includes the current major version.
+   */
+  currentVersionSharePercent?: number;
+
+  /**
+   * Configured threshold used by compatibility-threshold mode.
+   *
+   * Present only when `minimumDeviceSharePercent` was requested for that check.
+   */
+  minimumDeviceSharePercent?: number;
+
+  /**
+   * Source used for version-share data.
+   *
+   * Values:
+   * - `versionShareByMajor` (inline dataset)
+   * - `versionShareApiUrl` (remote dataset)
+   * - `generatedVersionShareByMajor` (built-in dataset generated at build time)
+   */
+  versionShareSource?: string;
+
+  /**
+   * Diagnostic message for compatibility-threshold mode.
+   *
+   * Present when `minimumDeviceSharePercent` was requested but the threshold check
+   * could not be fully evaluated.
+   */
+  deviceShareError?: string;
 
   /**
    * Android package name of the active WebView provider.
