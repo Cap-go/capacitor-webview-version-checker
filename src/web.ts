@@ -168,12 +168,12 @@ export class WebviewVersionCheckerWeb extends WebPlugin implements WebviewVersio
 
   private detectCurrentVersion(): string {
     const chromiumMatch = navigator.userAgent.match(/Chrome\/([\d.]+)/i);
-    if (chromiumMatch && chromiumMatch[1]) {
+    if (chromiumMatch?.[1]) {
       return chromiumMatch[1];
     }
 
     const appleWebKitMatch = navigator.userAgent.match(/AppleWebKit\/([\d.]+)/i);
-    if (appleWebKitMatch && appleWebKitMatch[1]) {
+    if (appleWebKitMatch?.[1]) {
       return appleWebKitMatch[1];
     }
 
