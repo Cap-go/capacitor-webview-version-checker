@@ -6,7 +6,7 @@
   <h2><a href="https://capgo.app/consulting/?ref=plugin_webview_version_checker"> Missing a feature? We’ll build the plugin for you 💪</a></h2>
 </div>
 
-Capacitor plugin to detect whether the app WebView engine is up to date, emit realtime status events, and optionally show a native update prompt that redirects users to the proper update destination.
+Capacitor plugin for checking whether the app WebView engine is up to date, emitting realtime status events, and optionally showing a native update prompt that redirects users to the proper update destination.
 
 ## Install
 
