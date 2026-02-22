@@ -47,6 +47,7 @@ const config: CapacitorConfig = {
   plugins: {
     WebviewVersionChecker: {
       autoPromptOnOutdated: true,
+      autoPromptDismissible: false,
     },
   },
 };
@@ -113,6 +114,7 @@ const status = await WebviewVersionChecker.check({
     'https://versionhistory.googleapis.com/v1/chrome/platforms/android/channels/stable/versions?page_size=1',
   minimumMajorVersion: 124,
   showPromptOnOutdated: true,
+  autoPromptDismissible: false,
   promptTitle: 'Update WebView',
   promptMessage: 'Your WebView is outdated. Please update to continue safely.',
   promptUpdateButtonText: 'Update now',
@@ -364,6 +366,7 @@ Options for running a WebView version check.
 
 | Prop                       | Type                 | Description                                                                       | Default               |
 | -------------------------- | -------------------- | --------------------------------------------------------------------------------- | --------------------- |
+| **`autoPromptDismissible`** | <code>boolean</code> | If `false`, the automatic modal cannot be dismissed manually.                       | <code>true</code>     |
 | **`showPromptOnOutdated`** | <code>boolean</code> | Force showing a native prompt if an outdated WebView is detected.                 | <code>false</code>    |
 | **`source`**               | <code>string</code>  | Optional tag included in the status payload so you can identify the check origin. | <code>"manual"</code> |
 

@@ -61,6 +61,16 @@ export interface WebviewVersionCheckerConfig {
   autoPromptOnOutdated?: boolean;
 
   /**
+   * Controls whether the automatic modal can be dismissed.
+   *
+   * When set to false, users cannot dismiss the automatic modal manually.
+   * They can only exit by opening the update action and reopening the app after updating.
+   *
+   * @default true
+   */
+  autoPromptDismissible?: boolean;
+
+  /**
    * Explicit latest version to compare with.
    * If provided, this value is used before any API lookup.
    */

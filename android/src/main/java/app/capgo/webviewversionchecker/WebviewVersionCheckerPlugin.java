@@ -75,6 +75,11 @@ public class WebviewVersionCheckerPlugin extends Plugin {
 
     private long cachedVersionShareTimestamp;
 
+    private boolean isPromptShowing;
+
+    @Nullable
+    private AlertDialog activePromptDialog;
+
     @Override
     public void load() {
         super.load();
@@ -132,7 +137,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
     @PluginMethod
     public void showUpdatePrompt(PluginCall call) {
         PromptOptions promptOptions = PromptOptions.fromCall(call, runtimeOptions);
-        showUpdatePrompt(promptOptions, true, (shown, opened) -> {
+        showUpdatePrompt(promptOptions, true, runtimeOptions.autoPromptDismissible, (shown, opened) -> {
             JSObject payload = new JSObject();
             payload.put("shown", shown);
             payload.put("openedUpdatePage", opened);
@@ -166,6 +171,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             lastStatus = status;
 
             notifyStatus(status);
+            dismissAutoPromptIfUpToDate(status);
             maybeAutoPrompt(status, options, forcePrompt);
 
             if (call != null) {
@@ -314,10 +320,15 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         }
 
         PromptOptions promptOptions = PromptOptions.fromRuntime(options);
-        showUpdatePrompt(promptOptions, forcePrompt, null);
+        showUpdatePrompt(promptOptions, forcePrompt, options.autoPromptDismissible, null);
     }
 
-    private void showUpdatePrompt(PromptOptions promptOptions, boolean force, @Nullable PromptResultCallback callback) {
+    private void showUpdatePrompt(
+        PromptOptions promptOptions,
+        boolean force,
+        boolean dismissible,
+        @Nullable PromptResultCallback callback
+    ) {
         Activity activity = getActivity();
         if (activity == null || activity.isFinishing()) {
             if (callback != null) {
@@ -335,15 +346,24 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         }
 
         String fingerprint = buildPromptFingerprint(lastStatus, updateUrl);
-        if (!force && !isBlank(fingerprint) && fingerprint.equals(lastPromptFingerprint)) {
+        if (dismissible && !force && !isBlank(fingerprint) && fingerprint.equals(lastPromptFingerprint)) {
             if (callback != null) {
                 callback.onResult(false, false);
             }
             return;
         }
 
-        if (!isBlank(fingerprint)) {
+        if (isPromptShowing) {
+            if (callback != null) {
+                callback.onResult(false, false);
+            }
+            return;
+        }
+
+        if (dismissible && !isBlank(fingerprint)) {
             lastPromptFingerprint = fingerprint;
+        } else {
+            lastPromptFingerprint = null;
         }
 
         String title = !isBlank(promptOptions.title) ? promptOptions.title : DEFAULT_PROMPT_TITLE;
@@ -353,7 +373,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
 
         bridge.executeOnMainThread(() -> {
             final boolean[] resolved = { false };
-            AlertDialog dialog = new AlertDialog.Builder(activity)
+            AlertDialog.Builder builder = new AlertDialog.Builder(activity)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton(updateButtonText, (dialogInterface, which) -> {
@@ -362,21 +382,64 @@ public class WebviewVersionCheckerPlugin extends Plugin {
                         resolved[0] = true;
                         callback.onResult(true, opened);
                     }
-                })
-                .setNegativeButton(cancelButtonText, (dialogInterface, which) -> {
-                    if (callback != null && !resolved[0]) {
-                        resolved[0] = true;
-                        callback.onResult(true, false);
-                    }
-                })
-                .setOnCancelListener((dialogInterface) -> {
-                    if (callback != null && !resolved[0]) {
-                        resolved[0] = true;
-                        callback.onResult(true, false);
-                    }
-                })
-                .create();
+                });
+
+            if (dismissible) {
+                builder
+                    .setNegativeButton(cancelButtonText, (dialogInterface, which) -> {
+                        if (callback != null && !resolved[0]) {
+                            resolved[0] = true;
+                            callback.onResult(true, false);
+                        }
+                    })
+                    .setOnCancelListener((dialogInterface) -> {
+                        if (callback != null && !resolved[0]) {
+                            resolved[0] = true;
+                            callback.onResult(true, false);
+                        }
+                    });
+            }
+
+            AlertDialog dialog = builder.setCancelable(dismissible).create();
+            isPromptShowing = true;
+            activePromptDialog = dialog;
+            dialog.setOnDismissListener((dialogInterface) -> {
+                isPromptShowing = false;
+                if (activePromptDialog == dialog) {
+                    activePromptDialog = null;
+                }
+            });
             dialog.show();
+            if (!dismissible) {
+                dialog
+                    .getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener((view) -> {
+                        boolean opened = openUpdateUrl(updateUrl);
+                        if (callback != null && !resolved[0]) {
+                            resolved[0] = true;
+                            callback.onResult(true, opened);
+                        }
+                    });
+            }
+        });
+    }
+
+    private void dismissAutoPromptIfUpToDate(JSObject status) {
+        if (!"latest".equals(status.optString("state", "unknown"))) {
+            return;
+        }
+        AlertDialog dialog = activePromptDialog;
+        if (dialog == null) {
+            return;
+        }
+
+        bridge.executeOnMainThread(() -> {
+            if (dialog.isShowing()) {
+                dialog.dismiss();
+            }
+            if (activePromptDialog == dialog) {
+                activePromptDialog = null;
+            }
         });
     }
 
@@ -1000,6 +1063,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         private boolean autoCheckOnResume = true;
         private boolean autoPromptOnOutdated;
         private boolean showPromptOnOutdated;
+        private boolean autoPromptDismissible = true;
 
         @Nullable
         private String latestVersion;
@@ -1039,6 +1103,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             out.autoCheckOnLoad = config.getBoolean("autoCheckOnLoad", true);
             out.autoCheckOnResume = config.getBoolean("autoCheckOnResume", true);
             out.autoPromptOnOutdated = config.getBoolean("autoPromptOnOutdated", false);
+            out.autoPromptDismissible = config.getBoolean("autoPromptDismissible", true);
             out.latestVersion = emptyToNull(config.getString("latestVersion"));
             Integer minimum = config.getConfigJSON().has("minimumMajorVersion") ? config.getInt("minimumMajorVersion", 0) : null;
             out.minimumMajorVersion = minimum;
@@ -1067,6 +1132,9 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             }
             if (call.hasOption("autoPromptOnOutdated")) {
                 out.autoPromptOnOutdated = call.getBoolean("autoPromptOnOutdated", out.autoPromptOnOutdated);
+            }
+            if (call.hasOption("autoPromptDismissible")) {
+                out.autoPromptDismissible = call.getBoolean("autoPromptDismissible", out.autoPromptDismissible);
             }
             if (call.hasOption("showPromptOnOutdated")) {
                 out.showPromptOnOutdated = call.getBoolean("showPromptOnOutdated", out.showPromptOnOutdated);
@@ -1113,6 +1181,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             out.autoCheckOnLoad = autoCheckOnLoad;
             out.autoCheckOnResume = autoCheckOnResume;
             out.autoPromptOnOutdated = autoPromptOnOutdated;
+            out.autoPromptDismissible = autoPromptDismissible;
             out.showPromptOnOutdated = showPromptOnOutdated;
             out.latestVersion = latestVersion;
             out.minimumMajorVersion = minimumMajorVersion;
