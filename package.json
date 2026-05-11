@@ -1,6 +1,6 @@
 {
   "name": "@capgo/capacitor-webview-version-checker",
-  "version": "8.2.1",
+  "version": "8.2.2",
   "description": "Capacitor plugin for checking outdated Android WebView engines, emitting status events, and presenting native update prompts.",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
