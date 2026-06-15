@@ -14,7 +14,8 @@
     "ios/Tests",
     "Package.swift",
     "CapgoCapacitorWebviewVersionChecker.podspec",
-    "scripts/generate-version-share-data.mjs"
+    "scripts/generate-version-share-data.mjs",
+    "src/generated-version-share.ts"
   ],
   "author": "Martin Donadieu <martin@capgo.app>",
   "license": "MPL-2.0",
