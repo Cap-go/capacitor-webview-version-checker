@@ -1,3 +1,5 @@
+import { CapacitorUpdater } from '@capgo/capacitor-updater';
+import { Capacitor } from '@capacitor/core';
 import './style.css';
 import { WebviewVersionChecker } from '@capgo/capacitor-webview-version-checker';
 
@@ -53,3 +55,9 @@ promptButton.addEventListener('click', async () => {
     setOutput(`Error: ${error?.message ?? error}`);
   }
 });
+
+if (Capacitor.isNativePlatform()) {
+  CapacitorUpdater.notifyAppReady().catch((error) => {
+    console.error('Capgo notifyAppReady failed', error);
+  });
+}
