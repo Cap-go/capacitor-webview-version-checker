@@ -6,19 +6,19 @@ import { spawnSync } from 'node:child_process';
 
 const repoRoot = resolve(import.meta.dirname, '..');
 const exampleDir = join(repoRoot, 'example-app');
+const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
+const examplePackagePath = join(exampleDir, 'package.json');
+const exampleLockPath = join(exampleDir, 'bun.lock');
+const originalPackage = readFileSync(examplePackagePath, 'utf8');
+const originalLock = existsSync(exampleLockPath) ? readFileSync(exampleLockPath, 'utf8') : undefined;
+const packDir = mkdtempSync(join(tmpdir(), 'capgo-example-pack-'));
+
 function run(command, args, cwd) {
   const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(command + ' ' + args.join(' ') + ' failed with status ' + (result.status ?? 'unknown'));
   }
-}
-const originalLock = existsSync(exampleLockPath) ? readFileSync(exampleLockPath, 'utf8') : undefined;
-const packDir = mkdtempSync(join(tmpdir(), 'capgo-example-pack-'));
-
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, stdio: 'inherit' });
-  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
 try {
