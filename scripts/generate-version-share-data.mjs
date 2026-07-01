@@ -2,14 +2,17 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SOURCE_URL = 'https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json';
 
-const outputTsPath = new URL('../src/generated-version-share.ts', import.meta.url).pathname;
-const outputJavaPath = new URL(
-  '../android/src/main/java/app/capgo/webviewversionchecker/GeneratedVersionShareData.java',
-  import.meta.url,
-).pathname;
+const outputTsPath = fileURLToPath(new URL('../src/generated-version-share.ts', import.meta.url));
+const outputJavaPath = fileURLToPath(
+  new URL(
+    '../android/src/main/java/app/capgo/webviewversionchecker/GeneratedVersionShareData.java',
+    import.meta.url,
+  ),
+);
 
 const timeoutMs = 15000;
 
