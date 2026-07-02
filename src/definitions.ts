@@ -77,8 +77,11 @@ export interface WebviewVersionCheckerConfig {
   latestVersion?: string;
 
   /**
-   * Fallback minimum allowed major version.
+   * Fallback minimum allowed major version for Android WebView checks.
    * Used when `latestVersion` cannot be resolved.
+   *
+   * Ignored on iOS because it refers to Chromium/WebView majors, not the installed iOS version.
+   * Use `latestVersion` on iOS when you need an explicit policy.
    */
   minimumMajorVersion?: number;
 

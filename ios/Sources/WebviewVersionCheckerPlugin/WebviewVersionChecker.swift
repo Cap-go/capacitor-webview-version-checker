@@ -47,19 +47,16 @@ private let defaultIOSUpdateUrl = "https://support.apple.com/guide/iphone/update
             return status
         }
 
-        if let minimumMajorVersion, let currentMajorVersion {
-            let isLatest = currentMajorVersion >= minimumMajorVersion
-            status["state"] = isLatest ? "latest" : "outdated"
-            status["isLatest"] = isLatest
-            status["reason"] = isLatest
-                ? "Installed iOS major version satisfies the configured minimum major version."
-                : "Installed iOS major version is below the configured minimum major version."
+        if minimumMajorVersion != nil {
+            status["state"] = "unknown"
+            status["isLatest"] = false
+            status["reason"] = "minimumMajorVersion applies to Android WebView only. Configure latestVersion on iOS to enforce a policy."
             return status
         }
 
         status["state"] = "unknown"
         status["isLatest"] = false
-        status["reason"] = "iOS WebKit updates are tied to iOS updates. Configure latestVersion or minimumMajorVersion to enforce a policy."
+        status["reason"] = "iOS WebKit updates are tied to iOS updates. Configure latestVersion to enforce a policy."
         return status
     }
 
