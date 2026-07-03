@@ -4,7 +4,7 @@ import pkg from './package.json';
 
 const config: CapacitorConfig = {
   appId: 'app.capgo.webviewversionchecker.example',
-  appName: 'WebView Version Checker Example',
+  appName: '@capgo/capacitor-webview-version-checker',
   webDir: 'dist',
   plugins: {
     SplashScreen: {
