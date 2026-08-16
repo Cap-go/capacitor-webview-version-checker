@@ -235,13 +235,24 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             }
         }
 
-        LatestVersionResolution latestResolution = resolveLatestVersion(options);
-        String latestVersion = latestResolution.version;
-        if (!isBlank(latestVersion)) {
-            status.put("latestVersion", latestVersion);
-            Integer latestMajorVersion = versionChecker.parseMajorVersion(latestVersion);
-            if (latestMajorVersion != null) {
-                status.put("latestMajorVersion", latestMajorVersion);
+        LatestVersionResolution latestResolution = new LatestVersionResolution(null, null);
+        String latestVersion = null;
+        if (
+            versionChecker.shouldResolveLatestVersion(
+                currentMajorVersion,
+                options.minimumMajorVersion,
+                options.minimumDeviceSharePercent,
+                currentVersionSharePercent
+            )
+        ) {
+            latestResolution = resolveLatestVersion(options);
+            latestVersion = latestResolution.version;
+            if (!isBlank(latestVersion)) {
+                status.put("latestVersion", latestVersion);
+                Integer latestMajorVersion = versionChecker.parseMajorVersion(latestVersion);
+                if (latestMajorVersion != null) {
+                    status.put("latestMajorVersion", latestMajorVersion);
+                }
             }
         }
 

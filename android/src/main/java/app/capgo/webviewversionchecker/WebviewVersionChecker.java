@@ -73,6 +73,23 @@ final class WebviewVersionChecker {
         return null;
     }
 
+    boolean shouldResolveLatestVersion(
+        @Nullable Integer currentMajorVersion,
+        @Nullable Integer minimumMajorVersion,
+        @Nullable Double minimumDeviceSharePercent,
+        @Nullable Double currentVersionSharePercent
+    ) {
+        if (minimumMajorVersion != null && currentMajorVersion != null && currentMajorVersion < minimumMajorVersion) {
+            return false;
+        }
+
+        if (minimumDeviceSharePercent != null && currentMajorVersion != null && currentVersionSharePercent != null) {
+            return false;
+        }
+
+        return true;
+    }
+
     @Nullable
     Integer parseMajorVersion(@Nullable String version) {
         if (version == null || version.isEmpty()) {
