@@ -38,10 +38,10 @@ public class WebviewVersionCheckerTest {
         WebviewVersionChecker.CompatibilityEvaluation evaluation = checker.evaluateCompatibility(
             "151.0.6998.135",
             151,
-            "151",
+            null,
             151,
-            0.0,
-            0.5
+            null,
+            null
         );
 
         assertNotNull(evaluation);
@@ -54,10 +54,10 @@ public class WebviewVersionCheckerTest {
         WebviewVersionChecker.CompatibilityEvaluation evaluation = checker.evaluateCompatibility(
             "152.0.6998.135",
             152,
-            "151",
+            null,
             151,
-            0.0,
-            0.5
+            null,
+            null
         );
 
         assertNotNull(evaluation);

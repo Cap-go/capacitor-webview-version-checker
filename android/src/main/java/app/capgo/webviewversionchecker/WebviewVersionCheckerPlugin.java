@@ -236,8 +236,14 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         }
 
         LatestVersionResolution latestResolution = new LatestVersionResolution(null, null);
-        String latestVersion = null;
-        if (
+        String latestVersion = isBlank(options.latestVersion) ? null : options.latestVersion;
+        if (!isBlank(latestVersion)) {
+            status.put("latestVersion", latestVersion);
+            Integer latestMajorVersion = versionChecker.parseMajorVersion(latestVersion);
+            if (latestMajorVersion != null) {
+                status.put("latestMajorVersion", latestMajorVersion);
+            }
+        } else if (
             versionChecker.shouldResolveLatestVersion(
                 currentMajorVersion,
                 options.minimumMajorVersion,

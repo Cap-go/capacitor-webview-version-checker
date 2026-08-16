@@ -77,7 +77,10 @@ export interface WebviewVersionCheckerConfig {
   latestVersion?: string;
 
   /**
-   * Minimum allowed major version for Android WebView checks.
+   * Minimum allowed major version for Android WebView and web checks.
+   *
+   * On the web, this applies to the browser-engine major version detected from
+   * the user agent and enforces the same strict lower bound.
    *
    * When set, this is always enforced as a strict lower bound: an installed major version
    * below this value is reported as `outdated`, even when device-share or `latestVersion`
