@@ -208,6 +208,7 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         }
 
         String deviceShareErrorMessage = null;
+        Double currentVersionSharePercent = null;
         if (options.minimumDeviceSharePercent != null) {
             status.put("minimumDeviceSharePercent", options.minimumDeviceSharePercent);
             if (currentMajorVersion == null) {
@@ -219,22 +220,10 @@ public class WebviewVersionCheckerPlugin extends Plugin {
                     status.put("versionShareSource", versionShareResolution.source);
                 }
 
-                Double currentVersionSharePercent = readShareForMajor(versionShareResolution.shareByMajor, currentMajorVersion);
+                currentVersionSharePercent = readShareForMajor(versionShareResolution.shareByMajor, currentMajorVersion);
                 if (currentVersionSharePercent != null) {
                     status.put("currentVersionSharePercent", currentVersionSharePercent);
-                    boolean isLatest = currentVersionSharePercent >= options.minimumDeviceSharePercent;
-                    status.put("state", isLatest ? "latest" : "outdated");
-                    status.put("isLatest", isLatest);
-                    status.put(
-                        "reason",
-                        isLatest
-                            ? "Installed WebView major version satisfies the configured minimum device-share threshold."
-                            : "Installed WebView major version is below the configured minimum device-share threshold."
-                    );
-                    return status;
-                }
-
-                if (!isBlank(versionShareResolution.errorMessage)) {
+                } else if (!isBlank(versionShareResolution.errorMessage)) {
                     deviceShareErrorMessage = versionShareResolution.errorMessage;
                 } else {
                     deviceShareErrorMessage =
@@ -256,31 +245,18 @@ public class WebviewVersionCheckerPlugin extends Plugin {
             }
         }
 
-        if (!isBlank(latestVersion)) {
-            int cmp = versionChecker.compareVersions(current.versionName, latestVersion);
-            boolean isLatest = cmp >= 0;
-            status.put("state", isLatest ? "latest" : "outdated");
-            status.put("isLatest", isLatest);
-            status.put(
-                "reason",
-                isLatest
-                    ? "Installed WebView version is at or above the latest resolved version."
-                    : "Installed WebView version is behind the latest resolved version."
-            );
-            return status;
-        }
-
-        Integer minimumMajorVersion = options.minimumMajorVersion;
-        if (minimumMajorVersion != null && currentMajorVersion != null) {
-            boolean isLatest = currentMajorVersion >= minimumMajorVersion;
-            status.put("state", isLatest ? "latest" : "outdated");
-            status.put("isLatest", isLatest);
-            status.put(
-                "reason",
-                isLatest
-                    ? "Installed WebView major version satisfies the minimum configured major version."
-                    : "Installed WebView major version is below the configured minimum major version."
-            );
+        WebviewVersionChecker.CompatibilityEvaluation evaluation = versionChecker.evaluateCompatibility(
+            current.versionName,
+            currentMajorVersion,
+            latestVersion,
+            options.minimumMajorVersion,
+            options.minimumDeviceSharePercent,
+            currentVersionSharePercent
+        );
+        if (evaluation != null) {
+            status.put("state", evaluation.state);
+            status.put("isLatest", evaluation.isLatest);
+            status.put("reason", evaluation.reason);
             return status;
         }
 
