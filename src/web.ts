@@ -83,6 +83,15 @@ export class WebviewVersionCheckerWeb extends WebPlugin implements WebviewVersio
       reason = deviceShareError;
     }
 
+    if (
+      typeof options.minimumMajorVersion === 'number' &&
+      typeof currentMajorVersion === 'number' &&
+      currentMajorVersion < options.minimumMajorVersion
+    ) {
+      state = 'outdated';
+      reason = 'Current browser engine major version is below the minimum requirement.';
+    }
+
     const status: WebViewVersionStatus = {
       platform: 'web',
       state,
