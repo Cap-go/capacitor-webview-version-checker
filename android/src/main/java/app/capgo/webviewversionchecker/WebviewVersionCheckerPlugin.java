@@ -1117,52 +1117,63 @@ public class WebviewVersionCheckerPlugin extends Plugin {
         RuntimeOptions merge(PluginCall call) {
             RuntimeOptions out = copy();
 
-            if (call.hasOption("autoCheckOnLoad")) {
-                out.autoCheckOnLoad = call.getBoolean("autoCheckOnLoad", out.autoCheckOnLoad);
+            Boolean autoCheckOnLoad = call.getBoolean("autoCheckOnLoad", null);
+            if (autoCheckOnLoad != null) {
+                out.autoCheckOnLoad = autoCheckOnLoad;
             }
-            if (call.hasOption("autoCheckOnResume")) {
-                out.autoCheckOnResume = call.getBoolean("autoCheckOnResume", out.autoCheckOnResume);
+            Boolean autoCheckOnResume = call.getBoolean("autoCheckOnResume", null);
+            if (autoCheckOnResume != null) {
+                out.autoCheckOnResume = autoCheckOnResume;
             }
-            if (call.hasOption("autoPromptOnOutdated")) {
-                out.autoPromptOnOutdated = call.getBoolean("autoPromptOnOutdated", out.autoPromptOnOutdated);
+            Boolean autoPromptOnOutdated = call.getBoolean("autoPromptOnOutdated", null);
+            if (autoPromptOnOutdated != null) {
+                out.autoPromptOnOutdated = autoPromptOnOutdated;
             }
-            if (call.hasOption("autoPromptDismissible")) {
-                out.autoPromptDismissible = call.getBoolean("autoPromptDismissible", out.autoPromptDismissible);
+            Boolean autoPromptDismissible = call.getBoolean("autoPromptDismissible", null);
+            if (autoPromptDismissible != null) {
+                out.autoPromptDismissible = autoPromptDismissible;
             }
-            if (call.hasOption("showPromptOnOutdated")) {
-                out.showPromptOnOutdated = call.getBoolean("showPromptOnOutdated", out.showPromptOnOutdated);
+            Boolean showPromptOnOutdated = call.getBoolean("showPromptOnOutdated", null);
+            if (showPromptOnOutdated != null) {
+                out.showPromptOnOutdated = showPromptOnOutdated;
             }
-            if (call.hasOption("latestVersion")) {
+            if (call.getString("latestVersion") != null) {
                 out.latestVersion = emptyToNull(call.getString("latestVersion"));
             }
-            if (call.hasOption("minimumMajorVersion")) {
-                out.minimumMajorVersion = call.getInt("minimumMajorVersion");
+            Integer minimumMajorVersion = call.getInt("minimumMajorVersion", null);
+            if (minimumMajorVersion != null) {
+                out.minimumMajorVersion = minimumMajorVersion;
             }
-            if (call.hasOption("minimumDeviceSharePercent")) {
-                out.minimumDeviceSharePercent = normalizePercent(call.getDouble("minimumDeviceSharePercent"));
+            Double minimumDeviceSharePercent = call.getDouble("minimumDeviceSharePercent", null);
+            if (minimumDeviceSharePercent == null) {
+                minimumDeviceSharePercent = readOptionalDouble(call.getData(), "minimumDeviceSharePercent");
             }
-            if (call.hasOption("versionShareByMajor")) {
-                out.versionShareByMajor = copyJsonObject(call.getObject("versionShareByMajor"));
+            if (minimumDeviceSharePercent != null) {
+                out.minimumDeviceSharePercent = normalizePercent(minimumDeviceSharePercent);
             }
-            if (call.hasOption("versionShareApiUrl")) {
+            JSObject versionShareByMajor = call.getObject("versionShareByMajor", null);
+            if (versionShareByMajor != null) {
+                out.versionShareByMajor = copyJsonObject(versionShareByMajor);
+            }
+            if (call.getString("versionShareApiUrl") != null) {
                 out.versionShareApiUrl = emptyToNull(call.getString("versionShareApiUrl"));
             }
-            if (call.hasOption("latestVersionApiUrl")) {
+            if (call.getString("latestVersionApiUrl") != null) {
                 out.latestVersionApiUrl = emptyToNull(call.getString("latestVersionApiUrl"));
             }
-            if (call.hasOption("updateUrl")) {
+            if (call.getString("updateUrl") != null) {
                 out.updateUrl = emptyToNull(call.getString("updateUrl"));
             }
-            if (call.hasOption("promptTitle")) {
+            if (call.getString("promptTitle") != null) {
                 out.promptTitle = emptyToNull(call.getString("promptTitle"));
             }
-            if (call.hasOption("promptMessage")) {
+            if (call.getString("promptMessage") != null) {
                 out.promptMessage = emptyToNull(call.getString("promptMessage"));
             }
-            if (call.hasOption("promptUpdateButtonText")) {
+            if (call.getString("promptUpdateButtonText") != null) {
                 out.promptUpdateButtonText = emptyToNull(call.getString("promptUpdateButtonText"));
             }
-            if (call.hasOption("promptCancelButtonText")) {
+            if (call.getString("promptCancelButtonText") != null) {
                 out.promptCancelButtonText = emptyToNull(call.getString("promptCancelButtonText"));
             }
 
