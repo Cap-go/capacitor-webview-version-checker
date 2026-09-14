@@ -28,7 +28,6 @@ const SKIP_DIRS = new Set([
 /** @type {{ label: string; pattern: RegExp }[]} */
 const RULES = [
   { label: "PluginCall.hasOption / CAPPluginCall.hasOption", pattern: /\bhasOption\s*\(/ },
-  { label: "Plugin.getConfigValue / CAPPlugin.getConfigValue", pattern: /\bgetConfigValue\s*\(/ },
   { label: "@NativePlugin", pattern: /@NativePlugin\b/ },
   { label: "Plugin.saveCall / Bridge.saveCall", pattern: /\bsaveCall\s*\(/ },
   { label: "Plugin.getSavedCall / Bridge.getSavedCall", pattern: /\bgetSavedCall\s*\(/ },
@@ -104,14 +103,50 @@ function parseArgs(argv) {
   return out;
 }
 
+const GET_CONFIG_VALUE_LABEL = "Plugin.getConfigValue / CAPPlugin.getConfigValue";
+
+function isGetConfigValueDefinition(line) {
+  return (
+    /\bfunc\s+getConfigValue\s*\(/.test(line) ||
+    /\b(?:override\s+)?(?:public|private|protected|internal|open|final|static)\s+(?:[\w<>,\s.?]+\s+)?getConfigValue\s*\(/.test(
+      line,
+    )
+  );
+}
+
+function matchesDeprecatedGetConfigValue(line, ext) {
+  if (!/\bgetConfigValue\s*\(/.test(line) || isGetConfigValueDefinition(line)) {
+    return false;
+  }
+
+  if (/\.getConfigValue\s*\(/.test(line) || /\b(?:super|this|self)\.getConfigValue\s*\(/.test(line)) {
+    return true;
+  }
+
+  if (ext === ".swift") {
+    return false;
+  }
+
+  return /\bgetConfigValue\s*\(/.test(line);
+}
+
 function scanFile(filePath, relPath) {
   const text = readText(filePath);
   if (!text) return [];
 
+  const ext = path.extname(filePath);
   const hits = [];
   const lines = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (matchesDeprecatedGetConfigValue(line, ext)) {
+      hits.push({
+        relPath,
+        line: i + 1,
+        label: GET_CONFIG_VALUE_LABEL,
+        snippet: line.trim(),
+      });
+    }
     for (const rule of RULES) {
       if (rule.pattern.test(line)) {
         hits.push({ relPath, line: i + 1, label: rule.label, snippet: line.trim() });
@@ -119,6 +154,14 @@ function scanFile(filePath, relPath) {
     }
   }
   return hits;
+}
+
+function resolveNativeSrcRoot(pluginDir, capEntry, defaultDir) {
+  const src = capEntry?.src;
+  if (typeof src === "string" && src.trim()) {
+    return path.join(pluginDir, src.trim());
+  }
+  return path.join(pluginDir, defaultDir);
 }
 
 const args = parseArgs(process.argv);
@@ -148,13 +191,21 @@ if (!supportsAndroid && !supportsIos) {
 
 const scanRoots = [];
 if (supportsAndroid) {
-  const androidDir = path.join(pluginDir, "android");
+  const androidDir = resolveNativeSrcRoot(pluginDir, cap.android, "android");
   if (exists(androidDir)) scanRoots.push(androidDir);
 }
 if (supportsIos) {
+  const iosRoot = resolveNativeSrcRoot(pluginDir, cap.ios, "ios");
+  let addedIosRoot = false;
   for (const sub of ["Sources", "Tests"]) {
-    const p = path.join(pluginDir, "ios", sub);
-    if (exists(p)) scanRoots.push(p);
+    const p = path.join(iosRoot, sub);
+    if (exists(p)) {
+      scanRoots.push(p);
+      addedIosRoot = true;
+    }
+  }
+  if (!addedIosRoot && exists(iosRoot)) {
+    scanRoots.push(iosRoot);
   }
 }
 
