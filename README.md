@@ -1,12 +1,28 @@
 # @capgo/capacitor-webview-version-checker
-<a href="https://capgo.app/"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-webview-version-checker" alt="Capgo - Instant updates for Capacitor" /></a>
+
+Detect outdated WebView engines in your Capacitor app and prompt users to update, before old Android System WebView versions break your UI.
+
+<a href="https://capgo.app/?ref=plugin_webview_version_checker"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-webview-version-checker" alt="Capgo - Instant updates for Capacitor" /></a>
 
 <div align="center">
-  <h2><a href="https://capgo.app/?ref=plugin_webview_version_checker"> ➡️ Get Instant updates for your App with Capgo</a></h2>
-  <h2><a href="https://capgo.app/consulting/?ref=plugin_webview_version_checker"> Missing a feature? We’ll build the plugin for you 💪</a></h2>
+  <p><b>Capgo</b>: open-source live updates for Ionic and Capacitor apps. Ship OTA fixes and features instantly, without waiting for app store review.</p>
+  <h2><a href="https://capgo.app/register/?ref=plugin_webview_version_checker">➡️ Get started for free</a></h2>
+  <p>14-day unlimited free trial. No credit card required</p>
+  <p><a href="https://capgo.app/consulting/?ref=plugin_webview_version_checker">Missing a feature? We'll build the plugin for you 💪</a></p>
 </div>
 
-Capacitor plugin for checking whether the app WebView engine is up to date, emitting realtime status events, and optionally showing a native update prompt that redirects users to the proper update destination.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Cap-go/capacitor-webview-version-checker/main/assets/github-social-preview.png" alt="@capgo/capacitor-webview-version-checker for Capacitor apps" width="300" />
+</p>
+
+## Key features
+
+- **Check**: `check()` returns whether the WebView is up to date or outdated.
+- **Monitoring**: `startMonitoring()` with `statusChanged`, `webViewLatest` and `webViewOutdated` events.
+- **Update prompt**: `showUpdatePrompt()` shows a native prompt, `openUpdatePage()` opens the right update page.
+- **Policies**: minimum version rules, with `latestVersion` for an explicit target.
+- **Last status**: `getLastStatus()` returns the latest result.
+- **Platforms**: iOS, Android and Web. Built for Android System WebView. On iOS the WebView follows the OS version and the prompt links to Apple's update help.
 
 ## Install
 
