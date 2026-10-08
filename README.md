@@ -17,7 +17,7 @@ Detect outdated WebView engines in your Capacitor app and prompt users to update
 
 ## Key features
 
-- **Check**: `check()` returns whether the WebView is up to date or outdated.
+- **Check**: `check()` returns whether the WebView is up to date, outdated or unknown.
 - **Monitoring**: `startMonitoring()` with `statusChanged`, `webViewLatest` and `webViewOutdated` events.
 - **Update prompt**: `showUpdatePrompt()` shows a native prompt, `openUpdatePage()` opens the right update page.
 - **Policies**: minimum version rules, with `latestVersion` for an explicit target.
